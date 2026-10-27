@@ -1,7 +1,7 @@
 /**
- * Custom GLSL Shaders for Luxury Fluid Aura Background Effect
- * Atmospheric energy field with domain-warped simplex noise, pointer velocity distortion,
- * and subtle chromatic dispersion.
+ * Ultra-Luxury Fluid Aura GLSL Shaders
+ * Organic liquid silk dynamics with domain-warped fractional Brownian motion,
+ * subtle film-grain optical dispersion, and velocity-responsive caustic filaments.
  */
 
 export const fluidAuraVertexShader = /* glsl */ `
@@ -27,7 +27,14 @@ export const fluidAuraFragmentShader = /* glsl */ `
   varying vec2 vUv;
   varying vec3 vPosition;
 
-  // 2D Simplex Noise implementation
+  // Pseudo-random hash for film grain
+  float hash(vec2 p) {
+    p = fract(p * vec2(123.34, 456.21));
+    p += dot(p, p + 45.32);
+    return fract(p.x * p.y);
+  }
+
+  // 2D Simplex Noise
   vec3 permute(vec3 x) { return mod(((x*34.0)+1.0)*x, 289.0); }
 
   float snoise(vec2 v){
@@ -35,8 +42,7 @@ export const fluidAuraFragmentShader = /* glsl */ `
              -0.577350269189626, 0.024390243902439);
     vec2 i  = floor(v + dot(v, C.yy) );
     vec2 x0 = v -   i + dot(i, C.xx);
-    vec2 i1;
-    i1 = (x0.x > x0.y) ? vec2(1.0, 0.0) : vec2(0.0, 1.0);
+    vec2 i1 = (x0.x > x0.y) ? vec2(1.0, 0.0) : vec2(0.0, 1.0);
     vec4 x12 = x0.xyxy + C.xxzz;
     x12.xy -= i1;
     i = mod(i, 289.0);
@@ -57,15 +63,15 @@ export const fluidAuraFragmentShader = /* glsl */ `
     return 130.0 * dot(m, g);
   }
 
-  // Fractional Brownian Motion with multi-octave distortion
+  // Multi-scale Fractional Brownian Motion
   float fbm(vec2 p) {
     float total = 0.0;
-    float amplitude = 0.5;
+    float amplitude = 0.52;
     float frequency = 1.0;
     for (int i = 0; i < 4; i++) {
       total += amplitude * snoise(p * frequency);
-      frequency *= 2.05;
-      amplitude *= 0.5;
+      frequency *= 2.08;
+      amplitude *= 0.48;
     }
     return total;
   }
@@ -73,47 +79,51 @@ export const fluidAuraFragmentShader = /* glsl */ `
   void main() {
     vec2 st = vUv;
     
-    // Pointer influence distortion
+    // Inertial pointer influence
     vec2 toPointer = st - uPointer;
     float dist = length(toPointer);
-    float pointerDistort = exp(-dist * 3.5) * (0.15 + uPointerVelocity * 0.4);
+    float pointerDistort = exp(-dist * 2.8) * (0.12 + uPointerVelocity * 0.35);
     
-    // Domain warping (Inigo Quilez technique)
+    // Inigo Quilez-style deep liquid domain warping
     vec2 q = vec2(
-      fbm(st * 2.2 + vec2(0.0, uTime * 0.08)),
-      fbm(st * 2.2 + vec2(5.2, 1.3 - uTime * 0.06))
+      fbm(st * 1.8 + vec2(0.0, uTime * 0.05)),
+      fbm(st * 1.8 + vec2(4.8, 1.2 - uTime * 0.04))
     );
 
     vec2 r = vec2(
-      fbm(st * 3.0 + 4.0 * q + vec2(1.7, 9.2) + toPointer * pointerDistort),
-      fbm(st * 3.0 + 4.0 * q + vec2(8.3, 2.8) + vec2(uTime * 0.04))
+      fbm(st * 2.4 + 3.2 * q + vec2(1.5, 8.4) + toPointer * pointerDistort),
+      fbm(st * 2.4 + 3.2 * q + vec2(7.2, 2.6) + vec2(uTime * 0.03))
     );
 
-    float f = fbm(st + 4.0 * r);
+    float f = fbm(st + 3.6 * r);
 
-    // Subtle chromatic dispersion
-    float fRed = fbm(st + 4.0 * r + vec2(0.015, 0.0));
-    float fBlue = fbm(st + 4.0 * r - vec2(0.015, 0.0));
+    // Subtle optical chromatic separation along flow direction
+    float fRed = fbm(st + 3.6 * r + vec2(0.012, -0.006));
+    float fBlue = fbm(st + 3.6 * r - vec2(0.012, 0.006));
 
-    // Color mixing
+    // Deep luxury background palette (Obsidian void -> Graphite silk)
     vec3 col = uColorBase;
-    
-    // Midground liquid glow
-    col = mix(col, vec3(0.08, 0.09, 0.13), clamp(f * f * 2.5, 0.0, 1.0));
-    
-    // Luminous accent threads (Champagne Gold / Cyan)
+    vec3 graphite = vec3(0.07, 0.075, 0.095);
+    col = mix(col, graphite, clamp(f * f * 2.2, 0.0, 1.0));
+
+    // Caustic luminous threads tailored to active variant color
     vec3 accentGrad = vec3(
-      mix(col.r, uColorAccent.r, fRed * 1.2),
-      mix(col.g, uColorAccent.g, f * 1.2),
-      mix(col.b, uColorAccent.b, fBlue * 1.2)
+      mix(col.r, uColorAccent.r, fRed * 1.15),
+      mix(col.g, uColorAccent.g, f * 1.15),
+      mix(col.b, uColorAccent.b, fBlue * 1.15)
     );
 
-    col = mix(col, accentGrad, clamp(pow(f, 3.2) * 1.8 * uIntensity, 0.0, 1.0));
+    float filamentGlow = pow(f, 3.4) * 1.75 * uIntensity;
+    col = mix(col, accentGrad, clamp(filamentGlow, 0.0, 1.0));
+
+    // Subtle analog luxury film grain
+    float grain = (hash(st * 500.0 + fract(uTime)) - 0.5) * 0.024;
+    col += grain;
 
     // Vignette
-    float vignette = 1.0 - smoothstep(0.3, 0.95, length(st - 0.5));
+    float vignette = 1.0 - smoothstep(0.28, 0.98, length(st - 0.5));
     col *= vignette;
 
-    gl_FragColor = vec4(col, 0.88);
+    gl_FragColor = vec4(col, 0.92);
   }
 `;

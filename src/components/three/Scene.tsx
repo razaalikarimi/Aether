@@ -22,7 +22,6 @@ interface SceneProps {
   onSelectVariant?: (variant: ProductVariant) => void;
 }
 
-// Inner frame meter hooked into real render cycle
 function PerformanceRegister() {
   useFrame(() => {
     webGLPerformanceManager.registerFrame(performance.now());
@@ -30,7 +29,6 @@ function PerformanceRegister() {
   return null;
 }
 
-// Robust WebGL Error Boundary to catch shader compilation or context failures
 interface ErrorBoundaryState {
   hasError: boolean;
   errorMessage: string;
@@ -95,7 +93,7 @@ export function Scene({
     <WebGLErrorBoundary fallback={fallbackNode}>
       <div className="relative w-full h-full min-h-[500px]">
         <Canvas
-          camera={{ position: [0, 0, 5.2], fov: 42 }}
+          camera={{ position: [0, 0, 5.2], fov: 40 }}
           dpr={[1, dprCap]}
           gl={{
             antialias: tier !== 'low',
@@ -113,20 +111,26 @@ export function Scene({
         >
           <PerformanceRegister />
 
-          {/* Dynamic Environment Lighting */}
-          <ambientLight intensity={0.4} color="#0c0e14" />
-          {/* Key Specular Highlight */}
-          <directionalLight position={[4, 5, 4]} intensity={1.8} color="#ffffff" />
-          {/* Rim Light for Metallic Edges */}
-          <directionalLight position={[-4, 2, -3]} intensity={1.2} color="#d4af37" />
-          {/* Soft fill */}
-          <pointLight position={[0, -2, 3]} intensity={0.6} color="#00f2fe" />
+          {/* 3-Point Studio Luxury Lighting Setup */}
+          <ambientLight intensity={0.45} color="#0a0b10" />
+
+          {/* Key Directional Light (Soft warm white highlight) */}
+          <directionalLight position={[4.5, 5.5, 4.2]} intensity={2.2} color="#ffffff" />
+
+          {/* Rim Specular Light 1 (Warm Champagne / Tungsten edge) */}
+          <directionalLight position={[-4.5, 3.2, -3.0]} intensity={1.5} color="#ffd88a" />
+
+          {/* Rim Specular Light 2 (Cool Platinum / Cyan edge) */}
+          <directionalLight position={[3.2, -2.5, -2.5]} intensity={0.9} color="#a6e3e9" />
+
+          {/* Subtle Front Fill Light for titanium chamfer reflections */}
+          <pointLight position={[0, 0, 4.0]} intensity={0.4} color="#f4f5f8" />
 
           <Suspense fallback={null}>
-            {/* Atmospheric Fluid Aura Background */}
+            {/* Fluid Aura Background Plane */}
             <FluidAuraBackground
               colorPreset={materialPreset}
-              intensity={tier === 'low' ? 0.5 : 1.0}
+              intensity={tier === 'low' ? 0.45 : 1.0}
             />
 
             {/* Floating Particles System */}
@@ -140,7 +144,18 @@ export function Scene({
               />
             </FloatingProductController>
 
-            {/* High-quality subtle environment reflection */}
+            {/* Ground Contact Shadow Gradient Disc */}
+            <mesh position={[0, -2.2, 0]} rotation={[-Math.PI / 2, 0, 0]}>
+              <ringGeometry args={[0, 2.8, 32]} />
+              <meshBasicMaterial
+                color="#000000"
+                transparent
+                opacity={0.35}
+                depthWrite={false}
+              />
+            </mesh>
+
+            {/* High-quality studio environment reflection */}
             <Environment preset="city" />
           </Suspense>
         </Canvas>
