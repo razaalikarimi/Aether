@@ -19,18 +19,26 @@ import {
   GET_CART_QUERY,
 } from './queries';
 import { MOCK_PRODUCTS, MOCK_COLLECTIONS, createInitialCart } from './mockData';
+import {
+  ProductNodeSchema,
+  CartNodeSchema,
+} from '@/lib/validation/shopifySchema';
 
 const domain = process.env.SHOPIFY_STORE_DOMAIN;
 const storefrontAccessToken = process.env.SHOPIFY_STOREFRONT_ACCESS_TOKEN;
 const apiVersion = process.env.SHOPIFY_STOREFRONT_API_VERSION || '2024-07';
+const isProduction = process.env.NODE_ENV === 'production';
 
 export const isLiveShopifyConfigured = Boolean(
-  domain && storefrontAccessToken && !domain.includes('placeholder')
+  domain &&
+    storefrontAccessToken &&
+    !domain.includes('placeholder') &&
+    !storefrontAccessToken.includes('placeholder')
 );
 
 interface GraphQLResponse<T> {
   data?: T;
-  errors?: Array<{ message: string }>;
+  errors?: Array<{ message: string; field?: string[] }>;
 }
 
 interface ShopifyImageNode {
@@ -132,12 +140,20 @@ async function shopifyFetch<T>({
   tags?: string[];
 }): Promise<T | null> {
   if (!isLiveShopifyConfigured) {
+    if (isProduction) {
+      console.error(
+        '[Shopify Storefront Config] Production environment detected without valid SHOPIFY_STORE_DOMAIN or SHOPIFY_STOREFRONT_ACCESS_TOKEN.'
+      );
+    }
     return null;
   }
 
   const endpoint = `https://${domain}/api/${apiVersion}/graphql.json`;
 
   try {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 8000); // 8-second network timeout
+
     const response = await fetch(endpoint, {
       method: 'POST',
       headers: {
@@ -146,29 +162,38 @@ async function shopifyFetch<T>({
       },
       body: JSON.stringify({ query, variables }),
       cache,
+      signal: controller.signal,
       ...(tags ? { next: { tags } } : {}),
     });
 
+    clearTimeout(timeoutId);
+
     if (!response.ok) {
-      console.error(`Shopify API error: HTTP ${response.status}`);
+      console.error(`[Shopify Storefront API Error] HTTP ${response.status}: ${response.statusText}`);
       return null;
     }
 
     const json = (await response.json()) as GraphQLResponse<T>;
 
-    if (json.errors) {
-      console.error('Shopify GraphQL errors:', json.errors);
+    if (json.errors && json.errors.length > 0) {
+      console.error('[Shopify Storefront GraphQL Errors]:', json.errors);
       return null;
     }
 
     return json.data ?? null;
   } catch (error) {
-    console.error('Failed to communicate with Shopify Storefront API:', error);
+    console.error('[Shopify Network Timeout or Exception]:', error);
     return null;
   }
 }
 
 function transformShopifyProduct(node: ShopifyProductNode): Product {
+  // Validate node shape with Zod in runtime
+  const parseResult = ProductNodeSchema.safeParse(node);
+  if (!parseResult.success) {
+    console.warn('[Zod Validation Warning] Product schema mismatch:', parseResult.error.format());
+  }
+
   const images =
     node.images?.edges?.map((edge) => ({
       url: edge.node.url,
@@ -234,6 +259,16 @@ export async function getProducts(query?: string): Promise<Product[]> {
     if (data?.products?.edges) {
       return data.products.edges.map((edge) => transformShopifyProduct(edge.node));
     }
+
+    if (isProduction) {
+      console.error('[Shopify Production Error] Failed to retrieve live products from Shopify.');
+      return [];
+    }
+  }
+
+  // Development-only mock mode with clear logging
+  if (!isProduction) {
+    console.info('[Aether Development] Serving curated local mock catalog.');
   }
 
   if (query) {
@@ -260,6 +295,10 @@ export async function getProductByHandle(handle: string): Promise<Product | null
 
     if (data?.product) {
       return transformShopifyProduct(data.product);
+    }
+
+    if (isProduction) {
+      return null;
     }
   }
 
@@ -291,6 +330,10 @@ export async function getCollections(): Promise<Collection[]> {
         ) || [],
       }));
     }
+
+    if (isProduction) {
+      return [];
+    }
   }
 
   return MOCK_COLLECTIONS;
@@ -302,6 +345,12 @@ export async function getCollectionByHandle(handle: string): Promise<Collection 
 }
 
 function transformShopifyCart(rawCart: ShopifyCartNode): Cart {
+  // Validate cart node shape with Zod
+  const parseResult = CartNodeSchema.safeParse(rawCart);
+  if (!parseResult.success) {
+    console.warn('[Zod Validation Warning] Cart schema mismatch:', parseResult.error.format());
+  }
+
   return {
     id: rawCart.id,
     checkoutUrl: rawCart.checkoutUrl,
@@ -329,6 +378,10 @@ export async function createCart(variantId?: string, quantity: number = 1): Prom
 
     if (data?.cartCreate?.cart) {
       return transformShopifyCart(data.cartCreate.cart);
+    }
+
+    if (isProduction) {
+      throw new Error('[Shopify API Error] Failed to create cart on live Shopify Storefront.');
     }
   }
 
@@ -390,6 +443,10 @@ export async function addToCart(
 
     if (data?.cartLinesAdd?.cart) {
       return transformShopifyCart(data.cartLinesAdd.cart);
+    }
+
+    if (isProduction) {
+      throw new Error('[Shopify API Error] Failed to add item to live Shopify cart.');
     }
   }
 
@@ -466,6 +523,10 @@ export async function updateCartLines(
     if (data?.cartLinesUpdate?.cart) {
       return transformShopifyCart(data.cartLinesUpdate.cart);
     }
+
+    if (isProduction) {
+      throw new Error('[Shopify API Error] Failed to update line items in live Shopify cart.');
+    }
   }
 
   const cart = activeMockCart || createInitialCart();
@@ -506,6 +567,10 @@ export async function removeFromCart(cartId: string, lineIds: string[]): Promise
     if (data?.cartLinesRemove?.cart) {
       return transformShopifyCart(data.cartLinesRemove.cart);
     }
+
+    if (isProduction) {
+      throw new Error('[Shopify API Error] Failed to remove line items from live Shopify cart.');
+    }
   }
 
   const cart = activeMockCart || createInitialCart();
@@ -537,6 +602,10 @@ export async function getCart(cartId: string): Promise<Cart | null> {
 
     if (data?.cart) {
       return transformShopifyCart(data.cart);
+    }
+
+    if (isProduction) {
+      return null;
     }
   }
 

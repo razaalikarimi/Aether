@@ -46,6 +46,21 @@ export function FloatingParticles() {
     return [pos, vel, init];
   }, [count]);
 
+  // Clean GPU memory allocation when particle tier count updates or unmounts
+  React.useEffect(() => {
+    const currentPoints = pointsRef.current;
+    return () => {
+      if (currentPoints) {
+        currentPoints.geometry.dispose();
+        if (Array.isArray(currentPoints.material)) {
+          currentPoints.material.forEach((m) => m.dispose());
+        } else {
+          currentPoints.material.dispose();
+        }
+      }
+    };
+  }, [count]);
+
   useFrame((state) => {
     if (!pointsRef.current || count === 0) return;
     const geo = pointsRef.current.geometry;

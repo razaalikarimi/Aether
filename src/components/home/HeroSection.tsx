@@ -15,7 +15,7 @@ export function HeroSection({
   onExploreClick,
 }: HeroSectionProps) {
   return (
-    <section className="relative w-full min-h-[92vh] flex flex-col justify-between pt-28 pb-10 px-6 md:px-12 pointer-events-none">
+    <section className="relative w-full min-h-[92vh] flex flex-col justify-between pt-36 sm:pt-40 pb-10 px-6 md:px-12 pointer-events-none">
       {/* Top Editorial Folio & Technical Coordinates */}
       <div className="max-w-7xl w-full mx-auto flex flex-col sm:flex-row sm:items-center justify-between gap-4 pointer-events-auto">
         <div className="flex items-center gap-3">

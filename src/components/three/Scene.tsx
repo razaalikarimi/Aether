@@ -103,28 +103,37 @@ export function Scene({
             depth: true,
           }}
           onCreated={({ gl }) => {
-            gl.domElement.addEventListener('webglcontextlost', (e) => {
+            const handleContextLost = (e: Event) => {
               e.preventDefault();
-              webGLPerformanceManager.activateFallback('Context lost');
-            });
+              webGLPerformanceManager.activateFallback('WebGL context lost');
+            };
+            const handleContextRestored = () => {
+              console.info('[Scene] WebGL context restored. Re-engaging 3D pipeline.');
+              webGLPerformanceManager.setTier('balanced');
+            };
+            gl.domElement.addEventListener('webglcontextlost', handleContextLost, { passive: false });
+            gl.domElement.addEventListener('webglcontextrestored', handleContextRestored);
           }}
         >
           <PerformanceRegister />
 
           {/* 3-Point Studio Luxury Lighting Setup */}
-          <ambientLight intensity={0.45} color="#0a0b10" />
+          <ambientLight intensity={0.65} color="#2b2e38" />
 
           {/* Key Directional Light (Soft warm white highlight) */}
-          <directionalLight position={[4.5, 5.5, 4.2]} intensity={2.2} color="#ffffff" />
+          <directionalLight position={[4.5, 5.5, 4.2]} intensity={2.4} color="#ffffff" />
 
           {/* Rim Specular Light 1 (Warm Champagne / Tungsten edge) */}
-          <directionalLight position={[-4.5, 3.2, -3.0]} intensity={1.5} color="#ffd88a" />
+          <directionalLight position={[-4.5, 3.2, -3.0]} intensity={1.8} color="#ffd88a" />
 
           {/* Rim Specular Light 2 (Cool Platinum / Cyan edge) */}
-          <directionalLight position={[3.2, -2.5, -2.5]} intensity={0.9} color="#a6e3e9" />
+          <directionalLight position={[3.2, -2.5, -2.5]} intensity={1.2} color="#a6e3e9" />
 
-          {/* Subtle Front Fill Light for titanium chamfer reflections */}
-          <pointLight position={[0, 0, 4.0]} intensity={0.4} color="#f4f5f8" />
+          {/* Front Fill Light for titanium chamfer reflections */}
+          <pointLight position={[0, 0, 4.0]} intensity={0.6} color="#f4f5f8" />
+
+          {/* Underside Subtle Fill for Memory Foam and Knurled Bevels */}
+          <directionalLight position={[0, -4.0, 2.0]} intensity={0.5} color="#dbe0ea" />
 
           <Suspense fallback={null}>
             {/* Fluid Aura Background Plane */}
@@ -155,8 +164,10 @@ export function Scene({
               />
             </mesh>
 
-            {/* High-quality studio environment reflection */}
-            <Environment preset="city" />
+            {/* Studio environment reflection in isolated Suspense boundary to prevent blocking */}
+            <Suspense fallback={null}>
+              <Environment preset="city" />
+            </Suspense>
           </Suspense>
         </Canvas>
       </div>

@@ -72,6 +72,20 @@ export function FluidAuraBackground({
     material.uniforms.uIntensity.value = intensity;
   });
 
+  React.useEffect(() => {
+    const currentMesh = meshRef.current;
+    return () => {
+      if (currentMesh) {
+        currentMesh.geometry.dispose();
+        if (Array.isArray(currentMesh.material)) {
+          currentMesh.material.forEach((m) => m.dispose());
+        } else {
+          currentMesh.material.dispose();
+        }
+      }
+    };
+  }, []);
+
   return (
     <mesh ref={meshRef} position={[0, 0, -8]} scale={[viewport.width * 2.2, viewport.height * 2.2, 1]}>
       <planeGeometry args={[1, 1, 32, 32]} />

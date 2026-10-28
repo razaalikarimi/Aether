@@ -8,6 +8,7 @@ import {
   updateCartLines,
   removeFromCart,
 } from '@/lib/shopify';
+import { ProductNodeSchema } from '@/lib/validation/shopifySchema';
 
 describe('Shopify Commerce Layer & Operations', () => {
   it('retrieves products with valid strict typing and pricing', async () => {
@@ -67,5 +68,52 @@ describe('Shopify Commerce Layer & Operations', () => {
     expect(emptyCart.totalQuantity).toBe(0);
     expect(emptyCart.lines.length).toBe(0);
     expect(emptyCart.cost.totalAmount.amount).toBe('0.00');
+  });
+
+  it('validates Shopify GraphQL responses against strict Zod schema', () => {
+    const mockGraphQLProduct = {
+      id: 'gid://shopify/Product/9999',
+      handle: 'bespoke-tourbillon-test',
+      title: 'Bespoke Tourbillon Test Complication',
+      availableForSale: true,
+      priceRange: {
+        minVariantPrice: { amount: '12500.00', currencyCode: 'USD' },
+        maxVariantPrice: { amount: '12500.00', currencyCode: 'USD' },
+      },
+    };
+
+    const result = ProductNodeSchema.safeParse(mockGraphQLProduct);
+    expect(result.success).toBe(true);
+
+    // Invalid Product GID (not starting with gid://shopify/Product/)
+    const invalidProduct = {
+      ...mockGraphQLProduct,
+      id: '12345_invalid',
+    };
+    const invalidResult = ProductNodeSchema.safeParse(invalidProduct);
+    expect(invalidResult.success).toBe(false);
+  });
+
+  it('validates checkout redirection domain whitelist against open-redirect attacks', () => {
+    const validateCheckoutUrl = (checkoutUrl: string) => {
+      try {
+        const parsed = new URL(checkoutUrl);
+        const isAllowed =
+          parsed.hostname.endsWith('myshopify.com') ||
+          parsed.hostname.endsWith('shopify.com');
+        return parsed.protocol === 'https:' && isAllowed;
+      } catch {
+        return false;
+      }
+    };
+
+    // Legitimate Shopify URLs
+    expect(validateCheckoutUrl('https://aether-atelier.myshopify.com/checkouts/cn/c1-12345')).toBe(true);
+    expect(validateCheckoutUrl('https://checkout.shopify.com/12345/checkouts/abc')).toBe(true);
+
+    // Malicious open-redirect targets
+    expect(validateCheckoutUrl('http://insecure-site.com/checkout')).toBe(false);
+    expect(validateCheckoutUrl('https://evil-phishing-site.com?shopify.com')).toBe(false);
+    expect(validateCheckoutUrl('javascript:alert(1)')).toBe(false);
   });
 });

@@ -100,7 +100,8 @@ class PerformanceManager {
     if (this.frameTimes.length >= 30) {
       const avgDuration =
         this.frameTimes.reduce((acc, curr) => acc + curr, 0) / this.frameTimes.length;
-      const currentFps = Math.min(1000 / avgDuration, 60);
+      const rawFps = 1000 / avgDuration;
+      const currentFps = Math.min(rawFps, 144);
 
       if (currentFps < this.LOW_FPS_THRESHOLD) {
         this.sustainedLowFpsCount++;
@@ -138,10 +139,9 @@ class PerformanceManager {
     } else if (this.currentTier === 'balanced') {
       console.warn(`[PerformanceManager] Sustained FPS ${Math.round(currentFps)} < 45. Downgrading to LOW tier.`);
       this.currentTier = 'low';
-    } else if (this.currentTier === 'low' && currentFps < this.CRITICAL_FPS_THRESHOLD) {
-      console.warn(`[PerformanceManager] Sustained critical FPS ${Math.round(currentFps)} < 25. Activating 2D FALLBACK.`);
-      this.activateFallback('Sustained critical frame rate');
     }
+    // LOW tier operates at ultra-lean budget (100 particles, DPR 1.0, low shader intensity)
+    // to preserve 3D visibility rather than cutting to 2D on momentary browser stutters.
   }
 
   private upgradeTier() {

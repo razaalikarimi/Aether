@@ -7,6 +7,8 @@ import { MaterialPresetId } from '@/types/three';
 import { HeroSection } from './HeroSection';
 import { MATERIAL_SPECS } from '../three/HeroProductModel';
 import { useCart } from '@/hooks/useCart';
+import { usePerformanceTier } from '@/lib/performance/usePerformanceTier';
+import { CinematicProductFallback } from '../three/CinematicProductFallback';
 import { Shield, Layers, Sliders, ArrowRight, Check, Activity, Sparkles } from 'lucide-react';
 
 const Scene = dynamic(() => import('../three/Scene').then((mod) => mod.Scene), {
@@ -98,6 +100,20 @@ export function CinematicStoryScroll({ variants }: CinematicStoryScrollProps) {
   };
 
   const currentSpec = MATERIAL_SPECS[activePreset] || MATERIAL_SPECS.titanium;
+  const { isFallback } = usePerformanceTier();
+
+  if (isFallback) {
+    return (
+      <div className="relative w-full bg-[#070709] pt-24 pb-8">
+        <CinematicProductFallback
+          variants={variants}
+          selectedVariantId={activeVariant?.id}
+          onSelectVariant={setActiveVariant}
+          reason="Hardware WebGL Fallback Active"
+        />
+      </div>
+    );
+  }
 
   return (
     <div ref={containerRef} className="relative w-full h-[460vh] bg-[#070709]">
